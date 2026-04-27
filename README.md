@@ -26,7 +26,7 @@ Tired of paid Alexa skills or complex setups? This project allows you to create 
 #### 2. Cloud Deployment (Vercel)
 - Fork/Clone this repository to your GitHub.
 - Create a new project in [Vercel](https://vercel.com) and connect your repository.
-- Go to **Settings > Environment Variables** and add the following:
+- Go to **Left Menu > Environment Variables** and add the following:
   - `UPSTASH_REDIS_REST_URL`: (from Step 1).
   - `UPSTASH_REDIS_REST_TOKEN`: (from Step 1).
   - `ADMIN_PASSWORD`: Choose a secret password. You will use this to access the dashboard and as the "Security Key" for the Windows Agent.
