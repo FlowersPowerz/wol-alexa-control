@@ -39,27 +39,43 @@ async function handleDiscovery(request, res) {
     const messageId = request.directive.header.messageId;
     const devices = await redis.get('wol_devices') || [];
 
-    const endpoints = [];
+    const endpoints = devices.map(config => {
 
-    devices.forEach(config => {
       const cleanId = config.mac.replace(/[: -]/g, '').toLowerCase();
 
       const formatMac = (rawMac) => {
         const clean = rawMac.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-        if (clean.length !== 12) return clean;
+        if (clean.length !== 12) return clean; 
         return clean.match(/.{1,2}/g).join(':');
       };
 
-      // Endpoint 1: WakeOnLANController + PowerController — voice TurnOn uses
-      // WakeOnLANController (Echo sends WoL), PowerController needed so Alexa
-      // recognises the device as switchable
-      endpoints.push({
-        endpointId: `endpoint-${cleanId}-wake`,
+      return {
+        endpointId: "endpoint-" + cleanId,
         manufacturerName: "FlowersPowerz",
         friendlyName: config.name,
         description: `PC WoL: ${config.name}`,
         displayCategories: ["COMPUTER"],
         capabilities: [
+          {
+            type: "AlexaInterface",
+            interface: "Alexa.PowerController",
+            version: "3",
+            properties: {
+              supported: [{ name: "powerState" }],
+              proactivelyReported: false,
+              retrievable: true
+            }
+          },
+          {
+            type: "AlexaInterface",
+            interface: "Alexa.EndpointHealth",
+            version: "3",
+            properties: {
+              supported: [{ name: "connectivity" }],
+              proactivelyReported: false,
+              retrievable: true
+            }
+          },
           {
             type: "AlexaInterface",
             interface: "Alexa.WakeOnLANController",
@@ -70,67 +86,11 @@ async function handleDiscovery(request, res) {
           },
           {
             type: "AlexaInterface",
-            interface: "Alexa.PowerController",
-            version: "3",
-            properties: {
-              supported: [{ name: "powerState" }],
-              proactivelyReported: false,
-              retrievable: true
-            }
-          },
-          {
-            type: "AlexaInterface",
-            interface: "Alexa.EndpointHealth",
-            version: "3",
-            properties: {
-              supported: [{ name: "connectivity" }],
-              proactivelyReported: false,
-              retrievable: true
-            }
-          },
-          {
-            type: "AlexaInterface",
             interface: "Alexa",
             version: "3"
           }
         ]
-      });
-
-      // Endpoint 2: PowerController only — handles TurnOff via ntfy → Agent
-      endpoints.push({
-        endpointId: `endpoint-${cleanId}-power`,
-        manufacturerName: "FlowersPowerz",
-        friendlyName: `${config.name} Aus`,
-        description: `PC Power: ${config.name}`,
-        displayCategories: ["COMPUTER"],
-        capabilities: [
-          {
-            type: "AlexaInterface",
-            interface: "Alexa.PowerController",
-            version: "3",
-            properties: {
-              supported: [{ name: "powerState" }],
-              proactivelyReported: false,
-              retrievable: true
-            }
-          },
-          {
-            type: "AlexaInterface",
-            interface: "Alexa.EndpointHealth",
-            version: "3",
-            properties: {
-              supported: [{ name: "connectivity" }],
-              proactivelyReported: false,
-              retrievable: true
-            }
-          },
-          {
-            type: "AlexaInterface",
-            interface: "Alexa",
-            version: "3"
-          }
-        ]
-      });
+      };
     });
 
     return res.status(200).json({
@@ -156,14 +116,14 @@ async function handlePowerControl(request, res) {
   const { header, endpoint } = request.directive;
   const correlationToken = header.correlationToken;
   const messageId = header.messageId;
-  const endpointId = endpoint.endpointId;
-  const name = header.name;
+  const endpointId = endpoint.endpointId; 
+  const name = header.name; 
 
   console.log(`Power Control: ${name} for ${endpointId}`);
 
   if (name === 'TurnOff') {
-    // Extract clean MAC id — works for both old and new endpoint ID formats
-    const cleanId = endpointId.replace('endpoint-', '').replace('-power', '').replace('-wake', '');
+
+    const cleanId = endpointId.replace('endpoint-', '');
     const adminPassword = process.env.ADMIN_PASSWORD || "";
 
     const secretHash = crypto.createHash('sha256')
@@ -174,6 +134,7 @@ async function handlePowerControl(request, res) {
     const topic = `wol_${secretHash}`;
 
     try {
+
       await fetch(`https://ntfy.sh/${topic}`, {
         method: 'POST',
         body: 'off'
@@ -210,7 +171,9 @@ async function handlePowerControl(request, res) {
         {
           namespace: "Alexa.EndpointHealth",
           name: "connectivity",
-          value: { value: "OK" },
+          value: {
+            value: "OK"
+          },
           timeOfSample: new Date().toISOString(),
           uncertaintyInMilliseconds: 0
         }
