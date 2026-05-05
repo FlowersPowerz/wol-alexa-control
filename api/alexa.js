@@ -45,7 +45,7 @@ async function handleDiscovery(request, res) {
 
       const formatMac = (rawMac) => {
         const clean = rawMac.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-        if (clean.length !== 12) return clean; 
+        if (clean.length !== 12) return clean;
         return clean.match(/.{1,2}/g).join(':');
       };
 
@@ -112,17 +112,77 @@ async function handleDiscovery(request, res) {
   }
 }
 
+async function sendWoLViaFritzBox(macAddress) {
+  const fritzUrl = process.env.FRITZBOX_URL;
+  const user = process.env.FRITZBOX_USER || '';
+  const password = process.env.FRITZBOX_PASSWORD || '';
+
+  if (!fritzUrl || !password) {
+    console.error("Fritz!Box not configured: missing FRITZBOX_URL or FRITZBOX_PASSWORD");
+    return;
+  }
+
+  const formatMac = (rawMac) => {
+    const clean = rawMac.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+    return clean.match(/.{1,2}/g).join(':');
+  };
+
+  const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  <s:Body>
+    <u:X_AVM-DE_WakeOnLANByMACAddress xmlns:u="urn:dslforum-org:service:Hosts:1">
+      <NewMACAddress>${formatMac(macAddress)}</NewMACAddress>
+    </u:X_AVM-DE_WakeOnLANByMACAddress>
+  </s:Body>
+</s:Envelope>`;
+
+  const credentials = Buffer.from(`${user}:${password}`).toString('base64');
+
+  const response = await fetch(`${fritzUrl}/upnp/control/hosts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/xml; charset="utf-8"',
+      'SOAPAction': '"urn:dslforum-org:service:Hosts:1#X_AVM-DE_WakeOnLANByMACAddress"',
+      'Authorization': `Basic ${credentials}`
+    },
+    body: soapBody
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(`Fritz!Box WoL failed: ${response.status} ${text}`);
+  } else {
+    console.log(`Fritz!Box WoL sent for MAC: ${formatMac(macAddress)}`);
+  }
+}
+
 async function handlePowerControl(request, res) {
   const { header, endpoint } = request.directive;
   const correlationToken = header.correlationToken;
   const messageId = header.messageId;
-  const endpointId = endpoint.endpointId; 
-  const name = header.name; 
+  const endpointId = endpoint.endpointId;
+  const name = header.name;
 
   console.log(`Power Control: ${name} for ${endpointId}`);
 
-  if (name === 'TurnOff') {
+  if (name === 'TurnOn') {
+    const cleanId = endpointId.replace('endpoint-', '');
 
+    try {
+      const devices = await redis.get('wol_devices') || [];
+      const device = devices.find(d => d.mac.replace(/[: -]/g, '').toLowerCase() === cleanId);
+
+      if (device) {
+        await sendWoLViaFritzBox(device.mac);
+      } else {
+        console.error(`Device not found for endpointId: ${endpointId}`);
+      }
+    } catch (err) {
+      console.error("Error sending WoL via Fritz!Box:", err);
+    }
+  }
+
+  if (name === 'TurnOff') {
     const cleanId = endpointId.replace('endpoint-', '');
     const adminPassword = process.env.ADMIN_PASSWORD || "";
 
@@ -134,7 +194,6 @@ async function handlePowerControl(request, res) {
     const topic = `wol_${secretHash}`;
 
     try {
-
       await fetch(`https://ntfy.sh/${topic}`, {
         method: 'POST',
         body: 'off'
