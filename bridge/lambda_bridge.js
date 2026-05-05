@@ -1,4 +1,6 @@
-exports.handler = async (event) => {
+import https from 'https';
+
+export const handler = async (event) => {
     const vercelUrl = 'https://YOUR-PROJECT.vercel.app/api/alexa';
 
     const body = JSON.stringify(event);
@@ -11,7 +13,6 @@ exports.handler = async (event) => {
     };
 
     return new Promise((resolve, reject) => {
-        const https = require('https');
         const req = https.request(vercelUrl, options, (res) => {
             let responseBody = '';
             res.on('data', (chunk) => responseBody += chunk);
