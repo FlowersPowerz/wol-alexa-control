@@ -79,7 +79,7 @@ async function handleDiscovery(request, res) {
       endpoints.push({
         endpointId: `endpoint-${cleanId}-power`,
         manufacturerName: "FlowersPowerz",
-        friendlyName: config.name,
+        friendlyName: `${config.name} Aus`,
         description: `PC Power: ${config.name}`,
         displayCategories: ["COMPUTER"],
         capabilities: [
