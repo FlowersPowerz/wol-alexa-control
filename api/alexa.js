@@ -50,8 +50,9 @@ async function handleDiscovery(request, res) {
         return clean.match(/.{1,2}/g).join(':');
       };
 
-      // Endpoint 1: WakeOnLANController only — Alexa (Echo) sends WoL for ALL
-      // TurnOn triggers (voice, App, Routine) without going through Lambda
+      // Endpoint 1: WakeOnLANController + PowerController — voice TurnOn uses
+      // WakeOnLANController (Echo sends WoL), PowerController needed so Alexa
+      // recognises the device as switchable
       endpoints.push({
         endpointId: `endpoint-${cleanId}-wake`,
         manufacturerName: "FlowersPowerz",
@@ -65,6 +66,26 @@ async function handleDiscovery(request, res) {
             version: "3",
             configuration: {
               MACAddresses: [formatMac(config.mac)]
+            }
+          },
+          {
+            type: "AlexaInterface",
+            interface: "Alexa.PowerController",
+            version: "3",
+            properties: {
+              supported: [{ name: "powerState" }],
+              proactivelyReported: false,
+              retrievable: true
+            }
+          },
+          {
+            type: "AlexaInterface",
+            interface: "Alexa.EndpointHealth",
+            version: "3",
+            properties: {
+              supported: [{ name: "connectivity" }],
+              proactivelyReported: false,
+              retrievable: true
             }
           },
           {
