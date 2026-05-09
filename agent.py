@@ -12,6 +12,13 @@ import sys
 import winreg
 import pathlib
 import time
+import certifi
+
+# Fix for PyInstaller CA bundle
+if getattr(sys, 'frozen', False):
+    cert_path = certifi.where()
+    os.environ['REQUESTS_CA_BUNDLE'] = cert_path
+    os.environ['SSL_CERT_FILE'] = cert_path
 
 BASE_DIR = pathlib.Path(sys.argv[0]).parent.absolute()
 SETTINGS_PATH = BASE_DIR / "agent_settings.json"
