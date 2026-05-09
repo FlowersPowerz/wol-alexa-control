@@ -182,7 +182,7 @@ class WolAgentApp(ctk.CTk):
                 if not self.is_running: break
                 self.safe_update_status("🟡 Connection Lost - Retrying...", "#ffff00")
                 err_msg = str(e)[:50]
-                self.after(0, lambda: self.add_log(f"Connection issue: {err_msg}..."))
+                # self.after(0, lambda: self.add_log(f"Connection issue: {err_msg}..."))
                 time.sleep(5) 
                 continue
 
